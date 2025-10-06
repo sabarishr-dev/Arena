@@ -15,8 +15,7 @@ export default function Publish() {
     const [categories, setCategories] = useState('');
     const [description, setDescription] = useState('');
     const [details, setDetails] = useState('');
-    const [gameImages, setGameImages] = useState<FileList | null>(null);
-    const [gameVideo, setGameVideo] = useState<File | null>(null);
+    const [gameThumbnail, setGameThumbnail] = useState<File | null>(null);
 
     const [dataFile, setDataFile] = useState<File | null>(null);
     const [wasmFile, setWasmFile] = useState<File | null>(null);
@@ -59,11 +58,8 @@ export default function Publish() {
         formData.append('publisher', session?.user?.email || "magician");
         formData.append('hasStreamingAssets', hasStreamingAssets ? 'true' : 'false');
 
-        if (gameImages) {
-            Array.from(gameImages).forEach((file) => formData.append('gameImages', file));
-        }
-        if (gameVideo) {
-            formData.append('gameVideo', gameVideo);
+        if (gameThumbnail) {
+            formData.append('gameThumbnail', gameThumbnail);
         }
 
         formData.append('files', dataFile!);
@@ -209,22 +205,12 @@ export default function Publish() {
                             </label>
 
                             <label>
-                                Game Images (PNG, IMG):
+                                Game Thumbnail (PNG, JPG)*
                                 <input
                                     type="file"
-                                    accept=".png, .img"
-                                    multiple
-                                    onChange={(e) => setGameImages(e.target.files)}
-                                />
-                            </label>
-
-                            <label>
-                                Game Video (MP4)*
-                                <input
-                                    type="file"
-                                    accept=".mp4"
+                                    accept=".png, .jpg, .jpeg"
                                     onChange={(e) =>
-                                        setGameVideo(e.target.files ? e.target.files[0] : null)
+                                        setGameThumbnail(e.target.files ? e.target.files[0] : null)
                                     }
                                 />
                             </label>

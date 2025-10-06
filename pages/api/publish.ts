@@ -44,8 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
             const basePath = path.join(process.cwd(), 'public', 'games', gameId);
             const buildPath = path.join(basePath, 'Build');
-            const previewPath = path.join(basePath, 'Previews');
-            const videoPath = path.join(basePath, 'Videos');
+            const thumbnailPath = path.join(basePath, 'Thumbnail');
             const streamingAssetsPath = path.join(basePath, 'StreamingAssets');
 
             // Handle duplicate build
@@ -59,14 +58,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
 
             // Recreate folders
-            for (const dir of [buildPath, previewPath, videoPath, streamingAssetsPath]) {
+            for (const dir of [buildPath, thumbnailPath, streamingAssetsPath]) {
                 await fs.mkdir(dir, { recursive: true });
             }
 
             // Normalize files from form-data
             const buildFiles = Array.isArray(files.files) ? files.files : files.files ? [files.files] : [];
-            const previewFiles = Array.isArray(files.gameImages) ? files.gameImages : files.gameImages ? [files.gameImages] : [];
-            const videoFile = Array.isArray(files.gameVideo) ? files.gameVideo[0] : files.gameVideo;
+            const thumbnailFile = Array.isArray(files.gameThumbnail) ? files.gameThumbnail[0] : files.gameThumbnail;
 
             // StreamingAssets files — this is new
             const streamingAssetsFiles = Array.isArray(files.streamingAssets)
@@ -75,8 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     ? [files.streamingAssets]
                     : [];
 
-            let imageUrls: string[] = [];
-            let videoUrl = '';
+            let thumbnailUrl = '';
 
             // Save build files
             for (const file of buildFiles) {
@@ -85,23 +82,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 await fs.copyFile(file.filepath, dest);
             }
 
-            // Save preview images
-            for (let i = 0; i < previewFiles.length; i++) {
-                const file = previewFiles[i];
-                if (!file) continue;
-                const ext = path.extname(file.originalFilename || '.png');
-                const destPath = path.join(previewPath, `${i + 1}${ext}`);
-                await fs.copyFile(file.filepath, destPath);
-                imageUrls.push(`/games/${gameId}/Previews/${i + 1}${ext}`);
-            }
-
-            // Save video file
-            if (videoFile) {
-                const ext = path.extname(videoFile.originalFilename || '.mp4');
-                const filename = `${gameName.replace(/\s+/g, '')}${ext}`;
-                const dest = path.join(videoPath, filename);
-                await fs.copyFile(videoFile.filepath, dest);
-                videoUrl = `/games/${gameId}/Videos/${filename}`;
+            // Save thumbnail file
+            if (thumbnailFile) {
+                const ext = path.extname(thumbnailFile.originalFilename || '.png');
+                const filename = `thumbnail${ext}`;
+                const dest = path.join(thumbnailPath, filename);
+                await fs.copyFile(thumbnailFile.filepath, dest);
+                thumbnailUrl = `/games/${gameId}/Thumbnail/${filename}`;
             }
 
             // Save StreamingAssets files preserving folder structure
@@ -127,15 +114,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const description = Array.isArray(fields.description) ? fields.description[0] : fields.description || '';
             const details = Array.isArray(fields.details) ? fields.details[0] : fields.details || '';
 
-            // Insert or overwrite DB (no streamingAssets update here)
+            // Insert or overwrite DB
             await insertGame({
                 id: parseInt(gameId),
                 buildName,
                 title: gameName,
                 description,
-                image: imageUrls,
+                thumbnail: thumbnailUrl,
                 category: categories,
-                video: videoUrl,
                 details,
                 publisher
             });

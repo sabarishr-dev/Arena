@@ -13,8 +13,7 @@ interface Game {
     buildName: string;
     title: string;
     description: string;
-    image: string[];
-    video: string | null;
+    thumbnail: string;
     details: string;
     category: string[];
     publisher: string;
@@ -28,7 +27,6 @@ export default function GameDetailPage() {
     const router = useRouter();
     const [game, setGame] = useState<Game | null>(null);
     const [loading, setLoading] = useState(true);
-    const [activeIndex, setActiveIndex] = useState(0);
     const [popup, setPopup] = useState(false);
 
     useEffect(() => {
@@ -90,38 +88,11 @@ export default function GameDetailPage() {
             <div className={styles.detailLayout}>
                 <div className={styles.previewContainer}>
                     <div className={styles.previewMedia}>
-                        {activeIndex < game.image.length ? (
-                            <img
-                                src={game.image[activeIndex]}
-                                alt={`${game.title} preview ${activeIndex + 1}`}
-                                className={styles.previewImage}
-                            />
-                        ) : (
-                            <video
-                                src={game.video!}
-                                className={styles.previewVideo}
-                                autoPlay
-                                playsInline
-                                controls
-                            />
-                        )}
-                    </div>
-
-                    <div className={styles.previewDots}>
-                        {game.image.map((_, index) => (
-                            <span
-                                key={`img-${index}`}
-                                className={`${styles.dot} ${activeIndex === index ? styles.activeDot : ''}`}
-                                onClick={() => setActiveIndex(index)}
-                            />
-                        ))}
-                        {game.video && (
-                            <span
-                                key="video"
-                                className={`${styles.dot} ${activeIndex === game.image.length ? styles.activeDot : ''}`}
-                                onClick={() => setActiveIndex(game.image.length)}
-                            />
-                        )}
+                        <img
+                            src={game.thumbnail}
+                            alt={`${game.title} thumbnail`}
+                            className={styles.previewImage}
+                        />
                     </div>
 
                     <div>

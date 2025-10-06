@@ -5,20 +5,22 @@ import fs from 'fs';
 
 export async function DELETE(
     req: Request,
-    context: { params: { id: string } }
+    context: Promise<{ params: Promise<{ id: string }> }>
 ) {
-    const id = parseInt(context.params.id);
-
-    if (isNaN(id)) {
-        return NextResponse.json({ error: 'Invalid game ID' }, { status: 400 });
-    }
-
     try {
+        const params = await context;
+        const { id } = await params.params;
+        const gameId = parseInt(id);
+
+        if (isNaN(gameId)) {
+            return NextResponse.json({ error: 'Invalid game ID' }, { status: 400 });
+        }
+
         // Step 1: Delete from database (cascades to images/categories)
-        await deleteGameById(id);
+        await deleteGameById(gameId);
 
         // Step 2: Delete the WebGL build folder
-        const folderPath = path.join(process.cwd(), 'public', 'games', id.toString());
+        const folderPath = path.join(process.cwd(), 'public', 'games', gameId.toString());
 
         if (fs.existsSync(folderPath)) {
             fs.rmSync(folderPath, { recursive: true, force: true });
