@@ -67,7 +67,7 @@ const GameView: React.FC<PlayGameProps> = ({ Id, Name }) => {
         };
 
         if (isExpired) {
-            alert("Your daily playtime has expired. Please come back tomorrow!");
+            console.log('Play time expired, redirecting to dashboard');
             router.push('/dashboard');
             return;
         }

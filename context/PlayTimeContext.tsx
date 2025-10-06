@@ -23,6 +23,7 @@ interface PlayTimeContextType {
     setStrictMode: (val: boolean) => void;
     playSessionDuration: number;
     elapsedTime: number;
+    resetPlayTime: () => Promise<void>;
 }
 
 const PlayTimeContext = createContext<PlayTimeContextType | undefined>(
@@ -67,24 +68,40 @@ export const PlayTimeProvider = ({ children }: { children: React.ReactNode }) =>
             try {
                 const response = await getUserDataFromPlayFab(sessionTicket, titleId);
 
-                const today = new Date().toDateString();
+                // Use UTC date for consistent timezone handling
+                const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
                 const savedDate = response?.data?.Data?.playtime_date?.Value;
                 const usedToday = parseInt(response?.data?.Data?.playtime_seconds?.Value || '0');
 
+                console.log('PlayFab data loaded:', { savedDate, today, usedToday });
 
                 if (savedDate !== today) {
+                    // New day - reset everything
+                    console.log('New day detected, resetting playtime');
                     setPlaySessionDuration(0);
                     setTimeLeft(SECONDS_PER_DAY);
                     setIsExpired(false);
+                    
+                    // Update PlayFab with reset data
+                    await updatePlayFabUserData(sessionTicket, titleId, {
+                        playtime_seconds: '0',
+                        playtime_date: today,
+                    });
                 } else {
+                    // Same day - restore previous state
                     const remaining = Math.max(SECONDS_PER_DAY - usedToday, 0);
                     setPlaySessionDuration(usedToday);
                     setTimeLeft(remaining);
                     setIsExpired(remaining <= 0);
+                    console.log('Same day, restored state:', { usedToday, remaining });
                 }
             } catch (err) {
                 console.error('Failed to load PlayFab playtime:', err);
+                // Fallback: assume fresh start if API fails
+                setPlaySessionDuration(0);
+                setTimeLeft(SECONDS_PER_DAY);
+                setIsExpired(false);
             }
         };
 
@@ -96,14 +113,20 @@ export const PlayTimeProvider = ({ children }: { children: React.ReactNode }) =>
 
         const totalUsed = Math.min(SECONDS_PER_DAY, playSessionDuration + usedSeconds);
         const remaining = Math.max(SECONDS_PER_DAY - totalUsed, 0);
-        const today = new Date().toDateString();
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
         try {
-            await updatePlayFabUserData(sessionTicket, titleId, {
+            const result = await updatePlayFabUserData(sessionTicket, titleId, {
                 playtime_seconds: totalUsed.toString(),
                 playtime_date: today,
             });
 
+            if (result.error) {
+                console.error('PlayFab API error:', result.error);
+                return;
+            }
+
+            console.log('PlayFab updated successfully:', { totalUsed, remaining });
             setPlaySessionDuration(totalUsed);
             setTimeLeft(remaining);
 
@@ -113,12 +136,14 @@ export const PlayTimeProvider = ({ children }: { children: React.ReactNode }) =>
             }
         } catch (err) {
             console.error('Failed to update playtime to PlayFab:', err);
+            // Don't update local state if API call fails to prevent desync
         }
     };
 
     const startSession = async () => {
         if (isExpired || sessionActive || !isUnityLoaded) return;
 
+        console.log('Starting play session');
         setSessionActive(true);
         sessionStartTime.current = Date.now();
         setElapsedTime(0);
@@ -135,12 +160,15 @@ export const PlayTimeProvider = ({ children }: { children: React.ReactNode }) =>
             setTimeLeft(remaining);
 
             if (strictMode && remaining <= 0) {
+                console.log('Play time expired, stopping session');
                 stopSession();
             }
         }, 1000);
     };
 
     const stopSession = () => {
+        console.log('Stopping play session');
+        
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
@@ -149,7 +177,11 @@ export const PlayTimeProvider = ({ children }: { children: React.ReactNode }) =>
         if (sessionStartTime.current) {
             const now = Date.now();
             const elapsed = Math.floor((now - sessionStartTime.current) / 1000);
-            updatePlayTimeToPlayFab(elapsed);
+            console.log('Session elapsed time:', elapsed, 'seconds');
+            
+            if (elapsed > 0) {
+                updatePlayTimeToPlayFab(elapsed);
+            }
             sessionStartTime.current = null;
         }
 
@@ -160,13 +192,36 @@ export const PlayTimeProvider = ({ children }: { children: React.ReactNode }) =>
     // start/stop session with Unity state
     useEffect(() => {
         if (isUnityLoaded && !sessionActive && !isExpired) {
+            console.log('Unity loaded, starting session');
             startSession();
         }
 
         if (!isUnityLoaded && sessionActive) {
+            console.log('Unity unloaded, stopping session');
             stopSession();
         }
-    }, [isUnityLoaded]);
+    }, [isUnityLoaded, sessionActive, isExpired]);
+
+    const resetPlayTime = async () => {
+        if (!sessionTicket || !titleId) return;
+        
+        console.log('Manually resetting play time');
+        const today = new Date().toISOString().split('T')[0];
+        
+        try {
+            await updatePlayFabUserData(sessionTicket, titleId, {
+                playtime_seconds: '0',
+                playtime_date: today,
+            });
+            
+            setPlaySessionDuration(0);
+            setTimeLeft(SECONDS_PER_DAY);
+            setIsExpired(false);
+            console.log('Play time reset successfully');
+        } catch (err) {
+            console.error('Failed to reset play time:', err);
+        }
+    };
 
     return (
         <PlayTimeContext.Provider
@@ -180,6 +235,7 @@ export const PlayTimeProvider = ({ children }: { children: React.ReactNode }) =>
                 setStrictMode,
                 playSessionDuration,
                 elapsedTime,
+                resetPlayTime,
             }}
         >
             {children}

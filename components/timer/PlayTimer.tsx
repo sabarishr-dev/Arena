@@ -34,21 +34,37 @@ const styles = {
 
 export default function PlayTimer() {
     const { isUnityLoaded } = useUnitySession();
-    const { elapsedTime, timeLeft } = usePlayTimeSession();
+    const { elapsedTime, timeLeft, isExpired, sessionActive } = usePlayTimeSession();
 
     const [remainingDisplay, setRemainingDisplay] = useState(timeLeft);
 
     useEffect(() => {
         setRemainingDisplay(timeLeft);
-    }, [timeLeft, isUnityLoaded]);
+    }, [timeLeft]);
 
     if (!isUnityLoaded) return null;
 
     return (
-        <div style={styles}>
-            Elapsed: {formatTime(elapsedTime)}
-            {'\n'}
-            Remaining: {formatTime(remainingDisplay)}
+        <div style={{
+            ...styles,
+            backgroundColor: isExpired ? 'rgba(255, 77, 79, 0.9)' : 
+                            sessionActive ? 'rgba(0,0,0,0.7)' : 'rgba(255, 193, 7, 0.9)'
+        }}>
+            {isExpired ? (
+                <>
+                    ⏰ Time's Up!
+                    {'\n'}
+                    Come back tomorrow!
+                </>
+            ) : (
+                <>
+                    Elapsed: {formatTime(elapsedTime)}
+                    {'\n'}
+                    Remaining: {formatTime(remainingDisplay)}
+                    {'\n'}
+                    Status: {sessionActive ? '🟢 Playing' : '⏸️ Paused'}
+                </>
+            )}
         </div>
     );
 }
