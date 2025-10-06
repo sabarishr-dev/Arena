@@ -49,6 +49,7 @@ export const PlayTimeProvider = ({ children }: { children: React.ReactNode }) =>
 
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const sessionStartTime = useRef<number | null>(null);
+    const autoUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const [sessionTicket, setSessionTicket] = useState<string | null>(null);
 
 
@@ -88,6 +89,7 @@ export const PlayTimeProvider = ({ children }: { children: React.ReactNode }) =>
                         playtime_seconds: '0',
                         playtime_date: today,
                     });
+                    console.log('PlayFab reset completed for new day');
                 } else {
                     // Same day - restore previous state
                     const remaining = Math.max(SECONDS_PER_DAY - usedToday, 0);
@@ -115,6 +117,8 @@ export const PlayTimeProvider = ({ children }: { children: React.ReactNode }) =>
         const remaining = Math.max(SECONDS_PER_DAY - totalUsed, 0);
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
+        console.log('Updating PlayFab:', { usedSeconds, playSessionDuration, totalUsed, remaining, today });
+
         try {
             const result = await updatePlayFabUserData(sessionTicket, titleId, {
                 playtime_seconds: totalUsed.toString(),
@@ -141,13 +145,14 @@ export const PlayTimeProvider = ({ children }: { children: React.ReactNode }) =>
     };
 
     const startSession = async () => {
-        if (isExpired || sessionActive || !isUnityLoaded) return;
+        if (isExpired || sessionActive) return;
 
         console.log('Starting play session');
         setSessionActive(true);
         sessionStartTime.current = Date.now();
         setElapsedTime(0);
 
+        // Main timer interval (every 1 second)
         intervalRef.current = setInterval(() => {
             if (!sessionStartTime.current) return;
 
@@ -164,14 +169,31 @@ export const PlayTimeProvider = ({ children }: { children: React.ReactNode }) =>
                 stopSession();
             }
         }, 1000);
+
+        // Auto-update PlayFab every 1 minute (60 seconds)
+        autoUpdateIntervalRef.current = setInterval(() => {
+            if (sessionStartTime.current) {
+                const now = Date.now();
+                const elapsed = Math.floor((now - sessionStartTime.current) / 1000);
+                if (elapsed > 0) {
+                    console.log('Auto-updating PlayFab (1 minute interval)');
+                    updatePlayTimeToPlayFab(elapsed);
+                }
+            }
+        }, 60000); // 60 seconds = 1 minute
     };
 
-    const stopSession = () => {
+    const stopSession = async () => {
         console.log('Stopping play session');
         
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
+        }
+
+        if (autoUpdateIntervalRef.current) {
+            clearInterval(autoUpdateIntervalRef.current);
+            autoUpdateIntervalRef.current = null;
         }
 
         if (sessionStartTime.current) {
@@ -180,6 +202,7 @@ export const PlayTimeProvider = ({ children }: { children: React.ReactNode }) =>
             console.log('Session elapsed time:', elapsed, 'seconds');
             
             if (elapsed > 0) {
+                // Use traditional PlayFab update for now to avoid conflicts
                 updatePlayTimeToPlayFab(elapsed);
             }
             sessionStartTime.current = null;

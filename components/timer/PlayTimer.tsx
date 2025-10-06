@@ -42,7 +42,8 @@ export default function PlayTimer() {
         setRemainingDisplay(timeLeft);
     }, [timeLeft]);
 
-    if (!isUnityLoaded) return null;
+    // Show timer when there's an active session, game loaded, or time has been used
+    if (!sessionActive && !isUnityLoaded && elapsedTime === 0) return null;
 
     return (
         <div style={{
@@ -58,6 +59,8 @@ export default function PlayTimer() {
                 </>
             ) : (
                 <>
+                    ⏱️ Play Time
+                    {'\n'}
                     Elapsed: {formatTime(elapsedTime)}
                     {'\n'}
                     Remaining: {formatTime(remainingDisplay)}

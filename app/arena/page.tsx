@@ -12,7 +12,8 @@ interface Game {
     description: string;
     thumbnail: string;
     category: string[];
-    publisher: string
+    publisher: string;
+    buildType: 'unity' | 'html';
 }
 
 export default function Arena() {

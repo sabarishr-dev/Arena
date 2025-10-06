@@ -16,11 +16,16 @@ export default function Publish() {
     const [description, setDescription] = useState('');
     const [details, setDetails] = useState('');
     const [gameThumbnail, setGameThumbnail] = useState<File | null>(null);
+    const [buildType, setBuildType] = useState<'unity' | 'html'>('unity');
 
+    // Unity WebGL files
     const [dataFile, setDataFile] = useState<File | null>(null);
     const [wasmFile, setWasmFile] = useState<File | null>(null);
     const [frameworkFile, setFrameworkFile] = useState<File | null>(null);
     const [loaderFile, setLoaderFile] = useState<File | null>(null);
+
+    // HTML build files
+    const [htmlFiles, setHtmlFiles] = useState<FileList | null>(null);
 
     const [hasStreamingAssets, setHasStreamingAssets] = useState(false);
     const [streamingAssetsFiles, setStreamingAssetsFiles] = useState<FileList | null>(null);
@@ -35,7 +40,11 @@ export default function Publish() {
     };
 
     const canSubmit = () => {
-        return dataFile !== null && wasmFile !== null && frameworkFile !== null && loaderFile !== null;
+        if (buildType === 'unity') {
+            return dataFile !== null && wasmFile !== null && frameworkFile !== null && loaderFile !== null;
+        } else {
+            return htmlFiles !== null && htmlFiles.length > 0;
+        }
     };
 
     const handleUpload = async (force = false) => {
@@ -56,16 +65,26 @@ export default function Publish() {
         formData.append('description', description);
         formData.append('details', details);
         formData.append('publisher', session?.user?.email || "magician");
+        formData.append('buildType', buildType);
         formData.append('hasStreamingAssets', hasStreamingAssets ? 'true' : 'false');
 
         if (gameThumbnail) {
             formData.append('gameThumbnail', gameThumbnail);
         }
 
-        formData.append('files', dataFile!);
-        formData.append('files', wasmFile!);
-        formData.append('files', frameworkFile!);
-        formData.append('files', loaderFile!);
+        if (buildType === 'unity') {
+            formData.append('files', dataFile!);
+            formData.append('files', wasmFile!);
+            formData.append('files', frameworkFile!);
+            formData.append('files', loaderFile!);
+        } else {
+            // HTML build files
+            if (htmlFiles) {
+                Array.from(htmlFiles).forEach((file) => {
+                    formData.append('htmlFiles', file);
+                });
+            }
+        }
 
         if (hasStreamingAssets && streamingAssetsFiles) {
             Array.from(streamingAssetsFiles).forEach((file) => {
@@ -127,7 +146,7 @@ export default function Publish() {
 
     return (
         <div className={styles.wrapper}>
-            <h1 className={styles.title}>Publish Unity WebGL Build</h1>
+            <h1 className={styles.title}>Publish Game Build</h1>
             <h6 className={styles.uploader}>Publisher : {session.user?.name}</h6>
 
             {!uploaded && (
@@ -205,6 +224,18 @@ export default function Publish() {
                             </label>
 
                             <label>
+                                Build Type ❗️
+                                <select
+                                    value={buildType}
+                                    onChange={(e) => setBuildType(e.target.value as 'unity' | 'html')}
+                                    style={{ width: '100%', padding: '8px', marginTop: '4px' }}
+                                >
+                                    <option value="unity">Unity WebGL</option>
+                                    <option value="html">HTML5 Game</option>
+                                </select>
+                            </label>
+
+                            <label>
                                 Game Thumbnail (PNG, JPG)*
                                 <input
                                     type="file"
@@ -229,14 +260,36 @@ export default function Publish() {
 
                     {step === 2 && (
                         <>
-                            <File label="DATA file (.data)*" accept=".data" onFileChange={setDataFile} />
-                            <File label="WASM file (.wasm)*" accept=".wasm" onFileChange={setWasmFile} />
-                            <File
-                                label="Framework JS (.framework.js)*"
-                                accept=".framework.js"
-                                onFileChange={setFrameworkFile}
-                            />
-                            <File label="Loader JS (.loader.js)*" accept=".loader.js" onFileChange={setLoaderFile} />
+                            {buildType === 'unity' ? (
+                                <>
+                                    <h3>Unity WebGL Build Files</h3>
+                                    <File label="DATA file (.data)*" accept=".data" onFileChange={setDataFile} />
+                                    <File label="WASM file (.wasm)*" accept=".wasm" onFileChange={setWasmFile} />
+                                    <File
+                                        label="Framework JS (.framework.js)*"
+                                        accept=".framework.js"
+                                        onFileChange={setFrameworkFile}
+                                    />
+                                    <File label="Loader JS (.loader.js)*" accept=".loader.js" onFileChange={setLoaderFile} />
+                                </>
+                            ) : (
+                                <>
+                                    <h3>HTML5 Game Files</h3>
+                                    <label>
+                                        HTML Game Files*
+                                        <input
+                                            type="file"
+                                            multiple
+                                            accept=".html,.htm,.js,.css,.png,.jpg,.jpeg,.gif,.svg,.mp3,.wav,.ogg"
+                                            onChange={(e) => setHtmlFiles(e.target.files)}
+                                            style={{ width: '100%', padding: '8px', marginTop: '4px' }}
+                                        />
+                                        <small style={{ fontSize: '12px', color: '#666' }}>
+                                            Select all files for your HTML5 game (HTML, CSS, JS, assets, etc.)
+                                        </small>
+                                    </label>
+                                </>
+                            )}
 
                             {/* <label style={{ marginTop: '20px', display: 'block' }}>
                                 <input
@@ -288,7 +341,7 @@ export default function Publish() {
                 </>
             )}
 
-            {uploaded && <p>Unity Build Uploaded! You can now preview the game.</p>}
+            {uploaded && <p>Game Build Uploaded! You can now preview the game.</p>}
         </div>
     );
 }

@@ -28,7 +28,8 @@ export async function initDb() {
             description TEXT,
             thumbnail TEXT,
             details TEXT,
-            publisher TEXT
+            publisher TEXT,
+            buildType TEXT DEFAULT 'unity'
         );
 
         CREATE TABLE IF NOT EXISTS game_categories (
@@ -51,12 +52,13 @@ export type Game = {
     details?: string;
     category?: string[];
     publisher?: string;
+    buildType?: 'unity' | 'html';
 };
 
 export async function insertGame(game: Game): Promise<number> {
     const db = await getDb();
 
-    const { id, buildName, title, description, thumbnail, details, category = [], publisher } = game;
+    const { id, buildName, title, description, thumbnail, details, category = [], publisher, buildType = 'unity' } = game;
 
     if (id !== undefined) {
         await db.run(`DELETE FROM games WHERE id = ?`, [id]);
@@ -64,8 +66,8 @@ export async function insertGame(game: Game): Promise<number> {
     }
 
     const result = await db.run(
-        `INSERT INTO games (id, buildName, title, description, thumbnail, details, publisher) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [id ?? null, buildName, title, description, thumbnail, details, publisher]
+        `INSERT INTO games (id, buildName, title, description, thumbnail, details, publisher, buildType) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id ?? null, buildName, title, description, thumbnail, details, publisher, buildType]
     );
 
     const gameId = id ?? result.lastID!;
@@ -105,7 +107,7 @@ export async function getGameById(id: number): Promise<Game | null> {
     const db = await getDb();
 
     const game = await db.get(
-        `SELECT id, buildName, title, description, thumbnail, details, publisher FROM games WHERE id = ?`,
+        `SELECT id, buildName, title, description, thumbnail, details, publisher, buildType FROM games WHERE id = ?`,
         [id]
     );
 
@@ -130,6 +132,7 @@ export async function getGameById(id: number): Promise<Game | null> {
         details: game.details,
         category: categories.map(cat => cat.category),
         publisher: game.publisher,
+        buildType: game.buildType as 'unity' | 'html',
     };
 }
 

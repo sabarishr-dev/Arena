@@ -5,11 +5,11 @@ import fs from 'fs';
 
 export async function DELETE(
     req: Request,
-    context: Promise<{ params: Promise<{ id: string }> }>
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const params = await context;
-        const { id } = await params.params;
+        const params = await context.params;
+        const { id } = params;
         const gameId = parseInt(id);
 
         if (isNaN(gameId)) {

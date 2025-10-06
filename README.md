@@ -15,12 +15,19 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 First, setup the database:
 
 ```bash
-npx tsx lib/init-db.ts
+npm run db:init
 ```
 
-Second, setup environmnet variables
-- change the .env.template to local
-- update the values in .env.local
+This will:
+- Create a `data` directory in your project root
+- Initialize a SQLite database (`games.db`) with the required tables:
+  - `games` table for storing game metadata (title, description, thumbnail, etc.)
+  - `game_categories` table for storing game categories
+- Set up proper foreign key relationships between tables
+
+Second, setup environment variables:
+- Copy `.env.template` to `.env.local`
+- Update the values in `.env.local` with your specific configuration
 
 
 Third, run the development server:
@@ -37,6 +44,33 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Database Management
+
+The application uses SQLite for local data storage. The database file is located at `data/games.db`.
+
+### Database Schema
+
+**games table:**
+- `id` (INTEGER PRIMARY KEY) - Unique game identifier
+- `buildName` (TEXT NOT NULL) - Internal build name for the game
+- `title` (TEXT NOT NULL) - Display title of the game
+- `description` (TEXT) - Game description
+- `thumbnail` (TEXT) - Path to thumbnail image
+- `details` (TEXT) - Additional game details
+- `publisher` (TEXT) - Game publisher information
+- `buildType` (TEXT DEFAULT 'unity') - Type of build ('unity' or 'html')
+
+**game_categories table:**
+- `id` (INTEGER PRIMARY KEY AUTOINCREMENT) - Category identifier
+- `game_id` (INTEGER NOT NULL) - Foreign key to games table
+- `category` (TEXT NOT NULL) - Category name
+
+### Database Operations
+
+- **Initialize database:** `npx tsx scripts/init-db.ts`
+- **Reset database:** Delete `data/games.db` and run the initialization script again
+- **View database:** Use any SQLite browser tool to inspect `data/games.db`
 
 ## Learn More
 

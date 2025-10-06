@@ -33,6 +33,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const gameId = Array.isArray(fields.gameId) ? fields.gameId[0] : fields.gameId || '';
             const gameName = Array.isArray(fields.gameName) ? fields.gameName[0] : fields.gameName || '';
             const categoryStr = Array.isArray(fields.categories) ? fields.categories[0] : fields.categories || '';
+            const buildTypeField = fields.buildType;
+            const buildType = Array.isArray(buildTypeField) ? buildTypeField[0] : buildTypeField || 'unity';
             const forceField = fields.force;
             const force = Array.isArray(forceField) ? forceField[0] === 'true' : forceField === 'true';
             const categories = categoryStr.split(',').map((c) => c.trim()).filter(Boolean);
@@ -43,9 +45,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
 
             const basePath = path.join(process.cwd(), 'public', 'games', gameId);
-            const buildPath = path.join(basePath, 'Build');
+            const buildPath = path.join(basePath, buildType === 'unity' ? 'Build' : 'HTML');
             const thumbnailPath = path.join(basePath, 'Thumbnail');
-            const streamingAssetsPath = path.join(basePath, 'StreamingAssets');
+            
+            // Only create StreamingAssets folder for Unity builds
+            const foldersToCreate = [buildPath, thumbnailPath];
+            if (buildType === 'unity') {
+                const streamingAssetsPath = path.join(basePath, 'StreamingAssets');
+                foldersToCreate.push(streamingAssetsPath);
+            }
 
             // Handle duplicate build
             if (fssync.existsSync(basePath)) {
@@ -58,12 +66,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
 
             // Recreate folders
-            for (const dir of [buildPath, thumbnailPath, streamingAssetsPath]) {
+            for (const dir of foldersToCreate) {
                 await fs.mkdir(dir, { recursive: true });
             }
 
             // Normalize files from form-data
             const buildFiles = Array.isArray(files.files) ? files.files : files.files ? [files.files] : [];
+            const htmlFiles = Array.isArray(files.htmlFiles) ? files.htmlFiles : files.htmlFiles ? [files.htmlFiles] : [];
             const thumbnailFile = Array.isArray(files.gameThumbnail) ? files.gameThumbnail[0] : files.gameThumbnail;
 
             // StreamingAssets files — this is new
@@ -75,11 +84,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
             let thumbnailUrl = '';
 
-            // Save build files
-            for (const file of buildFiles) {
-                if (!file) continue;
-                const dest = path.join(buildPath, file.originalFilename || '');
-                await fs.copyFile(file.filepath, dest);
+            // Save build files based on type
+            if (buildType === 'unity') {
+                // Save Unity WebGL files
+                for (const file of buildFiles) {
+                    if (!file) continue;
+                    const dest = path.join(buildPath, file.originalFilename || '');
+                    await fs.copyFile(file.filepath, dest);
+                }
+            } else {
+                // Save HTML files
+                for (const file of htmlFiles) {
+                    if (!file) continue;
+                    const dest = path.join(buildPath, file.originalFilename || '');
+                    await fs.copyFile(file.filepath, dest);
+                }
             }
 
             // Save thumbnail file
@@ -91,24 +110,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 thumbnailUrl = `/games/${gameId}/Thumbnail/${filename}`;
             }
 
-            // Save StreamingAssets files preserving folder structure
-            for (const file of streamingAssetsFiles) {
-                if (!file) continue;
+            // Save StreamingAssets files preserving folder structure (Unity only)
+            if (buildType === 'unity') {
+                const streamingAssetsPath = path.join(basePath, 'StreamingAssets');
+                for (const file of streamingAssetsFiles) {
+                    if (!file) continue;
 
-                // webkitRelativePath example: "Audio/sound.wav"
+                    // webkitRelativePath example: "Audio/sound.wav"
+                    const f = file as FormidableFileWithRelativePath;
+                    const relativePath = f.webkitRelativePath || f.originalFilename || f.newFilename;
+                    const dest = path.join(streamingAssetsPath, relativePath);
 
-                const f = file as FormidableFileWithRelativePath;
-                const relativePath = f.webkitRelativePath || f.originalFilename || f.newFilename;
-                const dest = path.join(streamingAssetsPath, relativePath);
+                    // Ensure directory exists
+                    await fs.mkdir(path.dirname(dest), { recursive: true });
 
-                // Ensure directory exists
-                await fs.mkdir(path.dirname(dest), { recursive: true });
-
-                // Copy the file
-                await fs.copyFile(file.filepath, dest);
+                    // Copy the file
+                    await fs.copyFile(file.filepath, dest);
+                }
             }
 
-            const buildFileNames = buildFiles.map((file) => file.originalFilename || '');
+            const buildFileNames = buildType === 'unity' 
+                ? buildFiles.map((file) => file.originalFilename || '')
+                : htmlFiles.map((file) => file.originalFilename || '');
             const buildName = buildFileNames.length > 0 ? buildFileNames[0].split('.')[0] : '';
 
             const description = Array.isArray(fields.description) ? fields.description[0] : fields.description || '';
@@ -123,7 +146,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 thumbnail: thumbnailUrl,
                 category: categories,
                 details,
-                publisher
+                publisher,
+                buildType: buildType as 'unity' | 'html'
             });
 
             return res.status(200).json({ success: true });

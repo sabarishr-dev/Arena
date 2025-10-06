@@ -17,6 +17,7 @@ interface Game {
     details: string;
     category: string[];
     publisher: string;
+    buildType: 'unity' | 'html';
 }
 
 export default function GameDetailPage() {
