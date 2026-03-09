@@ -1,7 +1,7 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/l';
 import { useEffect } from 'react';
 import SignIn from '@/components/auth/SignIn';
 
