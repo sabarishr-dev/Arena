@@ -1,7 +1,7 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/l';
+import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import SignIn from '@/components/auth/SignIn';
 
@@ -33,3 +33,4 @@ export default function Home() {
     </div>
   );
 }
+
