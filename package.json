@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "npm run db:init && next build",
     "start": "next start",
     "lint": "next lint",
     "db:init": "tsx scripts/init-db.ts"
